@@ -103,123 +103,29 @@ export class ItemsService extends BaseApiService {
 
     static async uploadItemsCSV(file: File): Promise<{ items?: Item[], errors?: CSVError[] }> {
         try {
-            const text = await file.text();
-            const rows = text.split('\n').map(row => row.trim()).filter(Boolean);
-            const headers = rows[0].toLowerCase().split(',').map(h => h.trim());
+            const parseResult = await parseCSV<Item>(file);
             
-            const errors: CSVError[] = [];
-            const validItems: Item[] = [];
-
-            rows.slice(1)
-                .filter(row => row.trim())
-                .forEach((row, index) => {
-                    try {
-                        const values = row.split(',').map(v => v.trim());
-                        const item: Record<string, any> = {};
-                        
-                        headers.forEach((header, idx) => {
-                            item[header] = values[idx];
-                        });
-
-                        // Validate required fields
-                        const missingFields = [];
-                        if (!item.internal_item_name) missingFields.push('internal_item_name');
-                        if (!item.type) missingFields.push('type');
-                        if (!item.uom) missingFields.push('uom');
-
-                        if (missingFields.length > 0) {
-                            errors.push({
-                                row: index + 2,
-                                message: `Missing required fields: ${missingFields.join(', ')}`
-                            });
-                            return;
-                        }
-
-                        // Validate type
-                        if (!['sell', 'purchase', 'component'].includes(item.type.toLowerCase())) {
-                            errors.push({
-                                row: index + 2,
-                                message: `Invalid type: ${item.type}. Must be one of: sell, purchase, component`
-                            });
-                            return;
-                        }
-
-                        // Validate UoM
-                        const normalizedUoM = item.uom.toLowerCase();
-                        if (!['kgs', 'nos', 'kg', 'no'].includes(normalizedUoM)) {
-                            errors.push({
-                                row: index + 2,
-                                message: `Invalid UoM: ${item.uom}. Must be one of: kgs, nos`
-                            });
-                            return;
-                        }
-
-                        // If all validations pass, create valid item
-                        validItems.push({
-                            id: crypto.randomUUID(),
-                            internal_item_name: item.internal_item_name,
-                            type: item.type.toLowerCase() as 'sell' | 'purchase' | 'component',
-                            uom: normalizedUoM.startsWith('kg') ? 'kgs' : 'nos',
-                            item_description: item.item_description || '',
-                            tenant_id: 1,
-                            created_by: 'current_user',
-                            last_updated_by: 'current_user',
-                            is_deleted: false,
-                            customer_item_name: item.customer_item_name || '',
-                            max_buffer: parseInt(item.max_buffer) || 0,
-                            min_buffer: parseInt(item.min_buffer) || 0,
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString(),
-                            additional_attributes: {
-                                drawing_revision_number: parseInt(item.drawing_revision_number) || 0,
-                                drawing_revision_date: item.drawing_revision_date || '',
-                                avg_weight_needed: parseFloat(item.avg_weight_needed) || 0,
-                                scrap_type: item.scrap_type || '',
-                                shelf_floor_alternate_name: item.shelf_floor_alternate_name || ''
-                            }
-                        });
-                    } catch (error) {
-                        errors.push({
-                            row: index + 2,
-                            message: error instanceof Error ? error.message : 'Invalid row data'
-                        });
-                    }
-                });
-
-            if (errors.length > 0) {
-                return { errors };
+            if (parseResult.errors.length > 0) {
+                return { errors: parseResult.errors };
             }
 
-            if (validItems.length === 0) {
-                return {
-                    errors: [{
-                        row: 0,
-                        message: 'No valid items found in CSV'
-                    }]
-                };
-            }
-
+            // Send the transformed data to the API
             const response = await fetch(`${API_CONFIG.BASE_URL}/items/upload`, {
                 method: 'POST',
                 headers: this.getHeaders(),
-                body: JSON.stringify(validItems)
+                body: JSON.stringify(parseResult.data)
             });
 
-            const result = await response.json();
-            
             if (!response.ok) {
-                return { errors: result.errors || [{ row: 0, message: result.message }] };
+                const error = await response.json();
+                throw new Error(error.message || 'Failed to upload items');
             }
 
+            const result = await response.json();
             return { items: result };
         } catch (error) {
-            console.error('Error uploading items CSV:', error);
-            return {
-                errors: [{
-                    row: 0,
-                    message: error instanceof Error ? error.message : 'Failed to process CSV'
-                }]
-            };
+            console.error('Error uploading items:', error);
+            throw error;
         }
     }
 

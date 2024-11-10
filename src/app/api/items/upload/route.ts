@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Item } from '@/types/item';
 import { CSVError } from '@/types/csv';
+import { itemStore } from '../store';
 
 export async function POST(request: NextRequest) {
     try {
@@ -30,13 +31,13 @@ export async function POST(request: NextRequest) {
                 // Create valid item
                 validItems.push({
                     ...item,
-                    id: crypto.randomUUID(),
-                    tenant_id: 1,
+                    id: item.id || crypto.randomUUID(),
+                    tenant_id: item.tenant_id || 1,
                     created_by: item.created_by || 'current_user',
                     last_updated_by: item.last_updated_by || 'current_user',
-                    is_deleted: false,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
+                    is_deleted: item.is_deleted || false,
+                    createdAt: item.createdAt || new Date().toISOString(),
+                    updatedAt: item.updatedAt || new Date().toISOString()
                 });
             } catch (error) {
                 errors.push({
@@ -50,7 +51,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ errors }, { status: 400 });
         }
 
-        return NextResponse.json(validItems);
+        // Store the valid items
+        const savedItems = itemStore.addItems(validItems);
+        
+        return NextResponse.json(savedItems);
     } catch (error) {
         console.error('Error processing items:', error);
         return NextResponse.json(

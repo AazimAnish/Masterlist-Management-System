@@ -15,6 +15,13 @@ export const itemStore = {
     global.__items.push(item);
     return item;
   },
+  addItems: (items: Item[]) => {
+    const existingIds = new Set(items.map(item => item.id));
+    global.__items = global.__items.filter(item => !existingIds.has(item.id));
+    
+    global.__items.push(...items);
+    return items;
+  },
   updateItem: (id: string, data: Partial<Item>) => {
     const index = global.__items.findIndex(item => item.id === id);
     if (index === -1) return null;

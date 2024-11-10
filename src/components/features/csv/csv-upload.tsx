@@ -57,7 +57,7 @@ export function CSVUpload({
       <div className="flex gap-4">
         <Input
           type="file"
-          accept=".csv"
+          accept=".csv, .xlsx, .xls"
           onChange={handleFileChange}
           disabled={isUploading}
         />
