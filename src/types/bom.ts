@@ -1,25 +1,30 @@
 import { Item } from './item';
 
-export interface BOM {
+export interface BOMEntry {
   id?: string;
   item_id: string;
   component_id: string;
   quantity: number;
-  tenant_id?: number;
-  created_by?: string;
-  last_updated_by?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  uom: string;
+  scrap_percentage?: number;
+  notes?: string;
+  is_active: boolean;
 }
 
-export interface BOMWithItems extends BOM {
-  item: Item;
-  component: Item;
+export interface BOMWithDetails extends BOMEntry {
+  item: {
+    internal_item_name: string;
+    type: string;
+  };
+  component: {
+    internal_item_name: string;
+    type: string;
+  };
 }
 
 export interface BOMError {
   rowIndex: number;
-  field: keyof BOM;
+  field: keyof BOMEntry;
   message: string;
 }
 
@@ -27,9 +32,13 @@ export interface BOMFormData {
   item_id: string;
   component_id: string;
   quantity: number;
+  uom: string;
+  scrap_percentage?: number;
+  notes?: string;
+  is_active: boolean;
 }
 
-export interface BOMTableRow extends BOMWithItems {
+export interface BOMTableRow extends BOMWithDetails {
   errors?: BOMError[];
   isEditing?: boolean;
 }

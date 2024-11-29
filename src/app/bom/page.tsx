@@ -5,12 +5,63 @@ import { PageHeader } from '@/components/layout/page-header';
 import { BOMForm } from '@/components/features/bom/bom-form';
 import { BOMTable } from '@/components/features/bom/bom-table';
 import { BOMFormData } from '@/validations/bom.schema';
-import { toast, useToast } from '@/components/ui/use-toast';
-import { useItems } from '@/hooks/use-items'; // You'll need to create this hook
+import { useToast } from '@/components/ui/use-toast';
+import { CSVUpload } from '@/components/features/csv/csv-upload';
+import { parseCSV, downloadCSV, generateErrorReport } from '@/utils/csv';
+import { CSVValidationService } from '@/services/csv-validation.service';
+import { useItems } from '@/hooks/use-items';
+import { BOMEntry } from '@/types/bom';
+import { CSVError } from '@/types/csv';
 
 export default function BOMPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { items, isLoading } = useItems(); // Custom hook to fetch items
+  const { items, isLoading } = useItems();
+  const { toast } = useToast();
+
+  const handleCSVUpload = async (file: File) => {
+    try {
+      const data = await parseCSV<BOMEntry>(file);
+      const errors = CSVValidationService.validateBOM(data, items);
+
+      if (errors.length > 0) {
+        throw { errors };
+      }
+
+      // Process valid data
+      // API call to save BOM entries
+      toast({
+        title: 'Success',
+        description: `${data.length} BOM entries uploaded successfully`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to upload BOM entries',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    const template = [
+      {
+        item_id: 'ITEM001',
+        component_id: 'ITEM002',
+        quantity: '1',
+        uom: 'Nos',
+        scrap_percentage: '0',
+        notes: 'Optional notes',
+        is_active: 'true',
+      },
+    ];
+    downloadCSV(template, 'bom-template.csv');
+  };
+
+  const handleDownloadErrors = (errors: CSVError[]) => {
+    const report = generateErrorReport(errors);
+    downloadCSV(report, 'bom-errors.csv');
+  };
 
   const handleSubmit = async (data: BOMFormData) => {
     try {
@@ -48,6 +99,18 @@ export default function BOMPage() {
         description="Manage your product compositions and material requirements."
       />
       
+      <div className="rounded-lg border bg-card">
+        <div className="p-6">
+          <h2 className="text-lg font-semibold mb-4">Bulk Upload</h2>
+          <CSVUpload
+            onUpload={handleCSVUpload}
+            onDownloadTemplate={handleDownloadTemplate}
+            onDownloadErrors={handleDownloadErrors}
+            templateName="bom"
+          />
+        </div>
+      </div>
+
       <div className="rounded-lg border bg-card">
         <div className="p-6">
           <h2 className="text-lg font-semibold mb-4">Add New BOM</h2>
