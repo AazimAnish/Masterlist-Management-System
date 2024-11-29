@@ -6,10 +6,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { PendingItem, PendingItemsByType } from '@/types/pending';
 import { useSetupStore } from '@/stores/useSetupStore';
-
-interface PendingItemsProps {
-  items: PendingItemsByType;
-}
+import { PendingItemsProps } from '@/types/components';
 
 export function PendingItems({ items }: PendingItemsProps) {
   const [expandedTypes, setExpandedTypes] = useState<string[]>([]);

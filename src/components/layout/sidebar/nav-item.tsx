@@ -3,14 +3,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CheckCircle } from 'lucide-react';
-import { NavItem } from '@/types/navigation';
 import { ProgressIndicator } from './progress-indicator';
 import { cn } from '@/lib/utils';
-
-interface SidebarNavItemProps {
-  item: NavItem;
-  isDisabled?: boolean;
-}
+import { SidebarNavItemProps } from '@/types/components';
 
 export function SidebarNavItem({ 
   item, 

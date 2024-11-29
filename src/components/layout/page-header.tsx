@@ -1,7 +1,4 @@
-interface PageHeaderProps {
-  title: string;
-  description?: string;
-}
+import { PageHeaderProps } from "@/types/layout";
 
 export function PageHeader({ title, description }: PageHeaderProps) {
   return (

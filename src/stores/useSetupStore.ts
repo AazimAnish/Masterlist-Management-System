@@ -1,12 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { SetupProgress } from '@/types/navigation';
-
-interface SetupStore {
-  progress: SetupProgress;
-  updateProgress: (step: keyof SetupProgress, value: number) => void;
-  resetProgress: () => void;
-}
+import { SetupStore } from '@/types/store';
 
 const initialProgress: SetupProgress = {
   items: 0,

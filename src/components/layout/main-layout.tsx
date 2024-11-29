@@ -1,8 +1,5 @@
 import { TabNavigation } from '@/components/navigation/tab-navigation';
-
-interface MainLayoutProps {
-  children: React.ReactNode;
-}
+import { MainLayoutProps } from '@/types/layout';
 
 export function MainLayout({ children }: MainLayoutProps) {
   return (

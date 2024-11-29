@@ -1,9 +1,5 @@
 import { cn } from '@/lib/utils';
-
-interface ProgressIndicatorProps {
-  progress: number;
-  size?: 'sm' | 'md' | 'lg';
-}
+import { ProgressIndicatorProps } from '@/types/components';
 
 export function ProgressIndicator({ 
   progress, 
