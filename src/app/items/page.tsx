@@ -5,11 +5,11 @@ import { PageHeader } from '@/components/layout/page-header';
 import { ItemForm } from '@/components/features/items/item-form';
 import { ItemsTable } from '@/components/features/items/items-table';
 import { ItemFormData } from '@/validations/item.schema';
-import { toast } from '@/components/ui/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 
 export default function ItemsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const { toast } = useToast();
   const handleSubmit = async (data: ItemFormData) => {
     try {
       setIsSubmitting(true);
