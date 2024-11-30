@@ -1,122 +1,168 @@
 'use client';
 
 import { useState } from 'react';
+import { useItems } from '@/hooks/use-items';
 import { PageHeader } from '@/components/layout/page-header';
 import { ItemForm } from '@/components/features/items/item-form';
-import { ItemsTable } from '@/components/features/items/items-table';
-import { ItemFormData } from '@/validations/item.schema';
-import { useToast } from '@/components/ui/use-toast';
+import { ItemTable } from '@/components/features/items/item-table';
 import { CSVUpload } from '@/components/features/csv/csv-upload';
-import { parseCSV, downloadCSV, generateErrorReport } from '@/utils/csv';
-import { CSVValidationService } from '@/services/csv-validation.service';
-import { Item } from '@/types/item';
-import { CSVError } from '@/types/csv';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/use-toast';
+import { ItemsService } from '@/services/api/items.service';
+import { downloadCSV } from '@/utils/csv';
+import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ItemFormData } from '@/types/item';
 
 export default function ItemsPage() {
+  const { items, isLoading, error, refetch } = useItems();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const { toast } = useToast();
-
-  const handleCSVUpload = async (file: File) => {
-    try {
-      const data = await parseCSV<Item>(file);
-      const errors = CSVValidationService.validateItems(data);
-
-      if (errors.length > 0) {
-        throw { errors };
-      }
-
-      // Process valid data
-      // API call to save items
-      toast({
-        title: 'Success',
-        description: `${data.length} items uploaded successfully`,
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to upload items',
-        variant: 'destructive',
-      });
-      throw error;
-    }
-  };
-
-  const handleDownloadTemplate = () => {
-    const template = [
-      {
-        internal_item_name: '',
-        type: 'purchase/sell',
-        uom: 'Nos/Kg/Ltr',
-        description: '',
-        scrap_type: 'yes/no',
-      },
-    ];
-    downloadCSV(template, 'items-template.csv');
-  };
-
-  const handleDownloadErrors = (errors: CSVError[]) => {
-    const report = generateErrorReport(errors);
-    downloadCSV(report, 'items-errors.csv');
-  };
 
   const handleSubmit = async (data: ItemFormData) => {
     try {
       setIsSubmitting(true);
-      // Here you would typically make an API call to save the item
-      console.log('Submitting:', data);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await ItemsService.createItem(data);
       toast({
-        title: "Success",
-        description: "Item has been created successfully.",
+        title: 'Success',
+        description: 'Item created successfully',
       });
+      refetch();
     } catch (error) {
-      console.error('Error submitting form:', error);
       toast({
-        title: "Error",
-        description: "Failed to create item. Please try again.",
-        variant: "destructive",
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to create item',
+        variant: 'destructive',
       });
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleCSVUpload = async (file: File) => {
+    try {
+      setUploadProgress(0);
+      const items = await ItemsService.uploadItemsCSV(file);
+      toast({
+        title: 'Success',
+        description: `${items.length} items uploaded successfully`,
+      });
+      refetch();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to upload CSV',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadProgress(100);
+      setTimeout(() => setUploadProgress(0), 1000);
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    const headers = [
+      'internal_item_name',
+      'type',
+      'uom',
+      'item_description',
+      'customer_item_name',
+      'max_buffer',
+      'min_buffer',
+    ];
+    downloadCSV([], headers, 'items-template.csv');
+  };
+
+  const handleDownloadItems = () => {
+    if (!items.length) return;
+    const headers = [
+      'internal_item_name',
+      'type',
+      'uom',
+      'item_description',
+      'customer_item_name',
+      'max_buffer',
+      'min_buffer',
+    ];
+    downloadCSV(items, headers, 'items.csv');
+  };
+
   return (
-    <div className="space-y-8">
-      <PageHeader 
-        title="Items" 
-        description="Manage your inventory items and their properties."
+    <div className="container mx-auto py-6 space-y-6">
+      <PageHeader
+        title="Items Management"
+        description="Create and manage your items inventory"
       />
-      
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error.message}</AlertDescription>
+        </Alert>
+      )}
+
       <div className="rounded-lg border bg-card">
         <div className="p-6">
           <h2 className="text-lg font-semibold mb-4">Bulk Upload</h2>
           <CSVUpload
             onUpload={handleCSVUpload}
             onDownloadTemplate={handleDownloadTemplate}
-            onDownloadErrors={handleDownloadErrors}
-            templateName="items"
+            templateName="Download Items Template"
           />
+          {uploadProgress > 0 && (
+            <Progress value={uploadProgress} className="w-full" />
+          )}
         </div>
       </div>
 
       <div className="rounded-lg border bg-card">
         <div className="p-6">
           <h2 className="text-lg font-semibold mb-4">Add New Item</h2>
-          <ItemForm 
-            onSubmit={handleSubmit}
-            isSubmitting={isSubmitting}
-          />
+          <ItemForm onSubmit={handleSubmit} isSubmitting={isSubmitting} />
         </div>
       </div>
 
       <div className="rounded-lg border bg-card">
         <div className="p-6">
           <h2 className="text-lg font-semibold mb-4">Items List</h2>
-          <ItemsTable />
+          <ItemTable
+            data={items}
+            isLoading={isLoading}
+            onDelete={async (id) => {
+              try {
+                await ItemsService.deleteItem(id);
+                toast({
+                  title: 'Success',
+                  description: 'Item deleted successfully',
+                });
+                refetch();
+              } catch (error) {
+                toast({
+                  title: 'Error',
+                  description: error instanceof Error
+                    ? error.message
+                    : 'Failed to delete item',
+                  variant: 'destructive',
+                });
+              }
+            }}
+            onEdit={async (id, data) => {
+              try {
+                await ItemsService.updateItem(id, data);
+                toast({
+                  title: 'Success',
+                  description: 'Item updated successfully',
+                });
+                refetch();
+              } catch (error) {
+                toast({
+                  title: 'Error',
+                  description: error instanceof Error ? error.message : 'Failed to update item',
+                  variant: 'destructive',
+                });
+              }
+            }}
+          />
         </div>
       </div>
     </div>

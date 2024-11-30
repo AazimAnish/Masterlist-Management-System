@@ -37,20 +37,24 @@ export async function parseCSV<T>(file: File): Promise<T[]> {
   });
 }
 
-export function downloadCSV(data: any[], filename: string) {
-  const csv = Papa.unparse(data);
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+export function downloadCSV(data: any[], headers: string[], filename: string) {
+  const csvRows = [
+    headers.join(','),
+    ...data.map(row =>
+      headers.map(header => {
+        const value = row[header]?.toString() ?? '';
+        return value.includes(',') ? `"${value}"` : value;
+      }).join(',')
+    )
+  ];
+  
+  const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
-  if (link.download !== undefined) {
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }
+  link.href = URL.createObjectURL(blob);
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 export function generateErrorReport(errors: CSVError[]) {

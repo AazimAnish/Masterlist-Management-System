@@ -1,13 +1,73 @@
 'use client';
 
+import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { itemSchema, type ItemFormData } from '@/validations/item.schema';
-import { SearchableSelect } from '@/components/ui/searchable-select';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Item } from '@/types/item';
+
+interface Option {
+  value: string;
+  label: string;
+  tooltip?: string;
+}
+
+interface SearchableSelectProps {
+  label: string;
+  options: Option[];
+  value?: string;
+  onChange: (value: string) => void;
+  error?: string;
+}
+
+function SearchableSelect({ 
+  label, 
+  options = [], 
+  value, 
+  onChange, 
+  error 
+}: SearchableSelectProps) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Select 
+        value={value || ''} 
+        onValueChange={(newValue) => onChange(newValue)}
+      >
+        <SelectTrigger className={error ? 'border-destructive' : ''}>
+          <SelectValue placeholder={`Select ${label}`} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.length > 0 ? (
+            options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))
+          ) : (
+            <div className="p-2 text-muted-foreground text-sm">
+              No options available
+            </div>
+          )}
+        </SelectContent>
+      </Select>
+      {error && (
+        <p className="text-destructive text-sm mt-1">{error}</p>
+      )}
+    </div>
+  );
+}
 
 const typeOptions = [
   { 
