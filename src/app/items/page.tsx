@@ -23,7 +23,13 @@ export default function ItemsPage() {
   const handleSubmit = async (data: ItemFormData) => {
     try {
       setIsSubmitting(true);
-      await ItemsService.createItem(data);
+      await ItemsService.createItem({
+        ...data,
+        tenant_id: 1,
+        created_by: 'current_user',
+        last_updated_by: 'current_user',
+        is_deleted: false,
+      });
       toast({
         title: 'Success',
         description: 'Item created successfully',
@@ -46,7 +52,7 @@ export default function ItemsPage() {
       const items = await ItemsService.uploadItemsCSV(file);
       toast({
         title: 'Success',
-        description: `${items.length} items uploaded successfully`,
+        description: `${items?.items?.length ?? 0} items uploaded successfully`,
       });
       refetch();
     } catch (error) {
@@ -71,7 +77,8 @@ export default function ItemsPage() {
       'max_buffer',
       'min_buffer',
     ];
-    downloadCSV([], headers, 'items-template.csv');
+    const content = headers.join(',') + '\n';
+    downloadCSV('items-template.csv', content);
   };
 
   const handleDownloadItems = () => {
@@ -85,7 +92,11 @@ export default function ItemsPage() {
       'max_buffer',
       'min_buffer',
     ];
-    downloadCSV(items, headers, 'items.csv');
+    const content = [
+      headers.join(','),
+      ...items.map(item => headers.map(h => item[h as keyof typeof item] || '').join(','))
+    ].join('\n');
+    downloadCSV('items.csv', content);
   };
 
   return (

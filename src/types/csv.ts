@@ -1,23 +1,23 @@
 export interface CSVError {
-  rowIndex: number;
-  field: string;
-  value: string;
+  row?: number;
   message: string;
+  rowIndex?: number;
+  field?: string;
+  value?: string;
   suggestion?: string;
 }
 
 export interface CSVUploadResponse<T> {
-  success: boolean;
-  data?: T[];
   errors?: CSVError[];
-  totalRows: number;
-  successRows: number;
-  failedRows: number;
+  data?: T[];
 }
 
-export interface CSVUploadState {
-  isUploading: boolean;
-  progress: number;
-  errors?: CSVError[];
-  success?: boolean;
+export interface CSVParseResult<T> {
+  data: T[];
+  errors: CSVError[];
+  
+}
+
+export interface CSVRow {
+  [key: string]: string | undefined;
 }

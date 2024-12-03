@@ -1,194 +1,128 @@
 'use client';
 
-import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { itemSchema, type ItemFormData } from '@/validations/item.schema';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
+import * as z from 'zod';
 import { Button } from '@/components/ui/button';
-import { Item } from '@/types/item';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ItemFormData, ItemType, UoMType } from '@/types/item';
+import { ITEM_TYPES, UOM_TYPES } from '@/constants/items';
 
-interface Option {
-  value: string;
-  label: string;
-  tooltip?: string;
-}
-
-interface SearchableSelectProps {
-  label: string;
-  options: Option[];
-  value?: string;
-  onChange: (value: string) => void;
-  error?: string;
-}
-
-function SearchableSelect({ 
-  label, 
-  options = [], 
-  value, 
-  onChange, 
-  error 
-}: SearchableSelectProps) {
-  return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      <Select 
-        value={value || ''} 
-        onValueChange={(newValue) => onChange(newValue)}
-      >
-        <SelectTrigger className={error ? 'border-destructive' : ''}>
-          <SelectValue placeholder={`Select ${label}`} />
-        </SelectTrigger>
-        <SelectContent>
-          {options.length > 0 ? (
-            options.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))
-          ) : (
-            <div className="p-2 text-muted-foreground text-sm">
-              No options available
-            </div>
-          )}
-        </SelectContent>
-      </Select>
-      {error && (
-        <p className="text-destructive text-sm mt-1">{error}</p>
-      )}
-    </div>
-  );
-}
-
-const typeOptions = [
-  { 
-    value: 'sell', 
-    label: 'Sell', 
-    tooltip: 'Items that are sold to customers' 
-  },
-  { 
-    value: 'purchase', 
-    label: 'Purchase', 
-    tooltip: 'Items that are purchased from vendors' 
-  },
-  { 
-    value: 'component', 
-    label: 'Component', 
-    tooltip: 'Items used in manufacturing' 
-  },
-];
-
-const uomOptions = [
-  { 
-    value: 'kgs', 
-    label: 'Kilograms', 
-    tooltip: 'Weight-based measurement' 
-  },
-  { 
-    value: 'nos', 
-    label: 'Numbers', 
-    tooltip: 'Quantity-based measurement' 
-  },
-];
+const formSchema = z.object({
+  internal_item_name: z.string().min(1, 'Internal item name is required'),
+  type: z.enum(['sell', 'purchase', 'component'] as const),
+  uom: z.enum(['kgs', 'nos'] as const),
+  item_description: z.string().optional(),
+  is_job_work: z.boolean().optional(),
+  scrap_type: z.string().optional(),
+});
 
 interface ItemFormProps {
-  initialData?: Item;
   onSubmit: (data: ItemFormData) => Promise<void>;
   isSubmitting?: boolean;
+  defaultValues?: Partial<ItemFormData>;
 }
 
-export function ItemForm({ 
-  initialData, 
-  onSubmit,
-  isSubmitting: externalIsSubmitting 
-}: ItemFormProps) {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting: formIsSubmitting },
-    setValue,
-    watch,
-  } = useForm<ItemFormData>({
-    resolver: zodResolver(itemSchema),
-    defaultValues: initialData,
+export function ItemForm({ onSubmit, isSubmitting = false, defaultValues }: ItemFormProps) {
+  const form = useForm<ItemFormData>({
+    resolver: zodResolver(formSchema),
+    defaultValues: defaultValues || {
+      internal_item_name: '',
+      type: 'sell',
+      uom: 'nos',
+      item_description: '',
+      is_job_work: false,
+      scrap_type: '',
+    },
   });
 
-  const type = watch('type');
-  const isSubmitting = externalIsSubmitting || formIsSubmitting;
-
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <Input
-            {...register('internal_item_name')}
-            label="Internal Item Name"
-            error={errors.internal_item_name?.message}
-            placeholder="Enter item name"
-          />
-        </div>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="internal_item_name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Internal Item Name</FormLabel>
+              <FormControl>
+                <Input {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-        <div>
-          <SearchableSelect
-            label="Type"
-            options={typeOptions}
-            value={type}
-            onChange={(value) => setValue('type', value as ItemFormData['type'])}
-            error={errors.type?.message}
-          />
-        </div>
+        <FormField
+          control={form.control}
+          name="type"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Type</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {ITEM_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-        <div>
-          <SearchableSelect
-            label="Unit of Measure"
-            options={uomOptions}
-            value={watch('uom')}
-            onChange={(value) => setValue('uom', value as ItemFormData['uom'])}
-            error={errors.uom?.message}
-          />
-        </div>
+        <FormField
+          control={form.control}
+          name="uom"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Unit of Measurement</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select UoM" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {UOM_TYPES.map((uom) => (
+                    <SelectItem key={uom} value={uom}>
+                      {uom.toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-        {(type === 'sell' || type === 'purchase') && (
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="is_job_work"
-              checked={watch('is_job_work')}
-              onCheckedChange={(checked) => 
-                setValue('is_job_work', checked as boolean)
-              }
-            />
-            <label 
-              htmlFor="is_job_work"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              Is Job Work
-            </label>
-          </div>
-        )}
-      </div>
-
-      <div className="flex justify-end space-x-4">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => window.history.back()}
-          disabled={isSubmitting}
-        >
-          Cancel
-        </Button>
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? 'Saving...' : 'Save Item'}
         </Button>
-      </div>
-    </form>
+      </form>
+    </Form>
   );
 }
