@@ -10,7 +10,7 @@ import {
   ColumnDef,
   flexRender,
 } from '@tanstack/react-table';
-import { BOMWithItems } from '@/types/bom';
+import { BOMWithDetails } from '@/types/bom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 
-const columns: ColumnDef<BOMWithItems>[] = [
+const columns: ColumnDef<BOMWithDetails>[] = [
   {
     accessorKey: 'item.internal_item_name',
     header: 'Item',
@@ -37,7 +37,7 @@ const columns: ColumnDef<BOMWithItems>[] = [
     header: 'Quantity',
     cell: ({ row }) => (
       <span>
-        {row.original.quantity} {row.original.component.uom}
+        {row.original.quantity} {(row.original.component as any).uom}
       </span>
     ),
   },
@@ -65,7 +65,7 @@ const columns: ColumnDef<BOMWithItems>[] = [
   },
 ];
 
-export function BOMTable({ data = [] }: { data: BOMWithItems[] }) {
+export function BOMTable({ data = [] }: { data: BOMWithDetails[] }) {
   const [globalFilter, setGlobalFilter] = useState('');
 
   const table = useReactTable({

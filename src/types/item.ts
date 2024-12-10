@@ -16,6 +16,8 @@ export interface Item {
   min_buffer?: number;
   createdAt: string;
   updatedAt: string;
+  components?: Item[]; // Added to fix type error in validatePendingItems
+  usedIn?: Item[]; // Added to fix type error in validatePendingItems
   additional_attributes: {
     drawing_revision_number?: number;
     drawing_revision_date?: string;

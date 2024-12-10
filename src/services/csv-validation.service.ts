@@ -1,152 +1,110 @@
 import { z } from 'zod';
-import { CSVError } from '@/types/csv';
-import { itemSchema } from '@/validations/item.schema';
-import { bomSchema } from '@/validations/bom.schema';
 import { Item } from '@/types/item';
-import { BOMEntry } from '@/types/bom';
+import { BOMEntry, CSVValidationError } from '@/types/bom';
+
+// CSV Row Schema with strict typing
+const csvBOMSchema = z.object({
+  item_id: z.string().min(1, 'Item ID is required'),
+  component_id: z.string().min(1, 'Component ID is required'),
+  quantity: z.coerce
+    .number()
+    .min(1, 'Quantity must be at least 1')
+    .max(100, 'Quantity must not exceed 100'),
+});
+
+type CSVBOMRow = z.infer<typeof csvBOMSchema>;
 
 export class CSVValidationService {
-  static validateItems(data: any[]): CSVError[] {
-    const errors: CSVError[] = [];
-    
-    data.forEach((row, index) => {
-      try {
-        itemSchema.parse(row);
-      } catch (error) {
-        if (error instanceof z.ZodError) {
-          error.errors.forEach((err) => {
-            errors.push({
-              rowIndex: index,
-              field: err.path.join('.'),
-              value: row[err.path[0]] || '',
-              message: err.message,
-              suggestion: this.getSuggestion(err),
-            });
-          });
-        }
-      }
-    });
+  static validateBOMCSV(
+    csvData: any[],
+    existingItems: Item[],
+    existingBOMs: BOMEntry[]
+  ): { validRows: BOMEntry[]; errors: CSVValidationError[] } {
+    const validRows: BOMEntry[] = [];
+    const errors: CSVValidationError[] = [];
 
-    return errors;
-  }
-
-  static validateBOM(data: any[], availableItems: Item[]): CSVError[] {
-    const errors: CSVError[] = [];
-    const processedItems = new Set<string>();
-    
-    data.forEach((row, index) => {
+    csvData.forEach((row, index) => {
       try {
-        // Basic schema validation
-        const validatedRow = bomSchema.parse(row);
+        // First validate the basic structure
+        const validatedRow = csvBOMSchema.parse(row);
         
-        // Business rules validation
-        const businessErrors = this.validateBOMBusinessRules(
-          validatedRow,
-          availableItems,
-          processedItems
+        // Find the referenced items
+        const item = existingItems.find(i => i.id === validatedRow.item_id);
+        const component = existingItems.find(i => i.id === validatedRow.component_id);
+
+        // Validate business rules
+        if (!item || !component) {
+          throw new Error('Referenced items do not exist');
+        }
+
+        if (item.type === 'purchase') {
+          throw new Error('Purchase items cannot be used as main items in BOM');
+        }
+
+        if (component.type === 'sell') {
+          throw new Error('Sell items cannot be used as components in BOM');
+        }
+
+        // Check for duplicate combinations
+        const isDuplicate = existingBOMs.some(
+          bom => bom.item_id === validatedRow.item_id && 
+                bom.component_id === validatedRow.component_id
+        ) || validRows.some(
+          vr => vr.item_id === validatedRow.item_id && 
+                vr.component_id === validatedRow.component_id
         );
-        
-        if (businessErrors.length > 0) {
-          errors.push(...businessErrors.map(error => ({
-            ...error,
-            rowIndex: index,
-          })));
-        } else {
-          processedItems.add(validatedRow.item_id);
+
+        if (isDuplicate) {
+          throw new Error('This item and component combination already exists');
         }
+
+        // If all validations pass, create a new BOM entry
+        const newBOMEntry: BOMEntry = {
+          item_id: validatedRow.item_id,
+          component_id: validatedRow.component_id,
+          quantity: validatedRow.quantity,
+          uom: 'Nos',
+          scrap_percentage: 0,
+          notes: '',
+          created_by: 'system_user',
+          last_updated_by: 'system_user',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          is_active: true
+        };
+
+        validRows.push(newBOMEntry);
       } catch (error) {
-        if (error instanceof z.ZodError) {
-          error.errors.forEach((err) => {
-            errors.push({
-              rowIndex: index,
-              field: err.path.join('.'),
-              value: row[err.path[0]] || '',
-              message: err.message,
-              suggestion: this.getSuggestion(err),
-            });
-          });
-        }
+        errors.push({
+          row: index + 2, // Add 2 to account for header row and 0-based index
+          message: error instanceof Error ? error.message : 'Invalid row data',
+          data: row
+        });
       }
     });
 
-    return errors;
+    return { validRows, errors };
   }
 
-  private static validateBOMBusinessRules(
-    entry: BOMEntry,
-    availableItems: Item[],
-    processedItems: Set<string>
-  ): CSVError[] {
-    const errors: CSVError[] = [];
-
-    // Check if item exists
-    const item = availableItems.find(i => i.id === entry.item_id);
-    if (!item) {
-      errors.push({
-        field: 'item_id',
-        value: entry.item_id,
-        message: 'Item not found',
-        suggestion: 'Please use a valid item ID',
-        rowIndex: 0, // Will be updated in the calling function
-      });
-    }
-
-    // Check if component exists
-    const component = availableItems.find(i => i.id === entry.component_id);
-    if (!component) {
-      errors.push({
-        field: 'component_id',
-        value: entry.component_id,
-        message: 'Component not found',
-        suggestion: 'Please use a valid component ID',
-        rowIndex: 0,
-      });
-    }
-
-    // Check for self-reference
-    if (entry.item_id === entry.component_id) {
-      errors.push({
-        field: 'component_id',
-        value: entry.component_id,
-        message: 'Item cannot be its own component',
-        suggestion: 'Please use a different component ID',
-        rowIndex: 0,
-      });
-    }
-
-    // Validate quantity based on UoM
-    if (component && component.uom !== entry.uom) {
-      errors.push({
-        field: 'uom',
-        value: entry.uom,
-        message: 'UoM mismatch with component',
-        suggestion: `Please use ${component.uom}`,
-        rowIndex: 0,
-      });
-    }
-
-    // Validate scrap percentage
-    if (entry.scrap_percentage && (entry.scrap_percentage < 0 || entry.scrap_percentage > 100)) {
-      errors.push({
-        field: 'scrap_percentage',
-        value: entry.scrap_percentage.toString(),
-        message: 'Invalid scrap percentage',
-        suggestion: 'Please enter a value between 0 and 100',
-        rowIndex: 0,
-      });
-    }
-
-    return errors;
+  static generateErrorReport(errors: CSVValidationError[]): string {
+    return errors.map(error => 
+      `Row ${error.row}: ${error.message}\nData: ${JSON.stringify(error.data)}`
+    ).join('\n\n');
   }
 
-  private static getSuggestion(error: z.ZodError['errors'][0]): string {
-    switch (error.code) {
-      case 'invalid_type':
-        return `Expected ${error.expected}, got ${error.received}`;
-      case 'invalid_enum_value':
-        return `Valid options are: ${(error as any).options?.join(', ')}`;
-      default:
-        return '';
-    }
+  static validatePendingItems(items: Item[]): Item[] {
+    return items.filter(item => {
+      if (item.type === 'sell' && !item.components?.length) {
+        return true;
+      }
+      if (item.type === 'purchase' && !item.usedIn?.length) {
+        return true;
+      }
+      if (item.type === 'component' && 
+          (!item.components?.length || !item.usedIn?.length)) {
+        return true;
+      }
+      return false;
+    });
   }
 }

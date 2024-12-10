@@ -1,9 +1,18 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { Item } from '@/types/item';
 import { ItemsService } from '@/services/api/items.service';
 import { useToast } from '@/components/ui/use-toast';
 
-export function useItems() {
+interface UseItemsResult {
+  items: Item[];
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+}
+
+export function useItems(): UseItemsResult {
   const [items, setItems] = useState<Item[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
