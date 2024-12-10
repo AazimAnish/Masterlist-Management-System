@@ -35,7 +35,7 @@ export const itemSchema = z.object({
   additional_attributes: z.object({
     avg_weight_needed: z.boolean({
       required_error: 'Average weight needed is required',
-    }),
+    }).default(false),
     scrap_type: z.string().optional()
       .refine((val) => {
         return val !== undefined && val !== '';

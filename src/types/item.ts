@@ -16,10 +16,10 @@ export interface Item {
   min_buffer?: number;
   createdAt: string;
   updatedAt: string;
-  additional_attributes?: {
+  additional_attributes: {
     drawing_revision_number?: number;
     drawing_revision_date?: string;
-    avg_weight_needed?: number;
+    avg_weight_needed: boolean;
     scrap_type?: string;
     shelf_floor_alternate_name?: string;
   };
@@ -39,10 +39,10 @@ export interface ItemFormData {
   created_by: string;
   last_updated_by: string;
   is_deleted: boolean;
-  additional_attributes?: {
+  additional_attributes: {
     drawing_revision_number?: number;
     drawing_revision_date?: string;
-    avg_weight_needed?: number;
+    avg_weight_needed: boolean;
     scrap_type?: string;
     shelf_floor_alternate_name?: string;
   };

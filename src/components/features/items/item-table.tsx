@@ -10,7 +10,7 @@ import {
   ColumnDef,
   flexRender,
 } from '@tanstack/react-table';
-import { Item, ItemFormData } from '@/types/item';
+import { Item, ItemFormData, ItemType, UoMType } from '@/types/item';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -40,6 +40,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface ItemTableProps {
   data: Item[];
@@ -54,46 +56,27 @@ export function ItemTable({ data = [], isLoading, onDelete, onEdit }: ItemTableP
   const [itemToDelete, setItemToDelete] = useState<Item | null>(null);
   const { toast } = useToast();
 
-  const handleEdit = async (id: string, updatedData: Partial<ItemFormData>) => {
-    try {
-      const item = data.find(item => item.id === id);
-      if (!item) return;
-
-      await onEdit(id, { ...item, ...updatedData });
-      setEditingId(null);
-    } catch (error) {
-      console.error('Error updating item:', error);
-    }
-  };
-
-  const handleDelete = async (item: Item) => {
-    try {
-      setDeletingId(item.id);
-      await onDelete(item.id);
-      toast({
-        title: 'Success',
-        description: `Item ${item.internal_item_name} deleted successfully`,
-      });
-      setItemToDelete(null);
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to delete item',
-        variant: 'destructive',
-      });
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
   const columns: ColumnDef<Item>[] = [
     {
       accessorKey: 'id',
       header: 'ID',
+      cell: ({ row }) => row.original.id,
     },
     {
       accessorKey: 'internal_item_name',
       header: 'Internal Name',
+      cell: ({ row }) => {
+        const item = row.original;
+        const isEditing = editingId === item.id;
+        return isEditing ? (
+          <Input
+            defaultValue={item.internal_item_name}
+            onChange={(e) => handleEdit(item.id, { internal_item_name: e.target.value })}
+          />
+        ) : (
+          item.internal_item_name
+        );
+      },
     },
     {
       accessorKey: 'type',
@@ -101,32 +84,25 @@ export function ItemTable({ data = [], isLoading, onDelete, onEdit }: ItemTableP
       cell: ({ row }) => {
         const item = row.original;
         const isEditing = editingId === item.id;
-
-        if (isEditing) {
-          return (
-            <Select
-              defaultValue={item.type}
-              onValueChange={(value) => {
-                handleEdit(item.id, { type: value as Item['type'] });
-              }}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue>
-                  {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {ITEM_TYPES.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          );
-        }
-
-        return item.type.charAt(0).toUpperCase() + item.type.slice(1);
+        return isEditing ? (
+          <Select
+            defaultValue={item.type}
+            onValueChange={(value) => handleEdit(item.id, { type: value as ItemType })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ITEM_TYPES.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          item.type.charAt(0).toUpperCase() + item.type.slice(1)
+        );
       },
     },
     {
@@ -135,62 +111,126 @@ export function ItemTable({ data = [], isLoading, onDelete, onEdit }: ItemTableP
       cell: ({ row }) => {
         const item = row.original;
         const isEditing = editingId === item.id;
-
-        if (isEditing) {
-          return (
-            <Select
-              defaultValue={item.uom}
-              onValueChange={(value) => {
-                handleEdit(item.id, { uom: value as Item['uom'] });
-              }}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue>
-                  {item.uom.toUpperCase()}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {UOM_TYPES.map((uom) => (
-                  <SelectItem key={uom} value={uom}>
-                    {uom.toUpperCase()}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          );
-        }
-
-        return item.uom.toUpperCase();
+        return isEditing ? (
+          <Select
+            defaultValue={item.uom}
+            onValueChange={(value) => handleEdit(item.id, { uom: value as UoMType })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {UOM_TYPES.map((uom) => (
+                <SelectItem key={uom} value={uom}>
+                  {uom.toUpperCase()}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          item.uom.toUpperCase()
+        );
       },
     },
     {
       accessorKey: 'additional_attributes.avg_weight_needed',
       header: 'Avg Weight Needed',
-      cell: ({ row }) => row.original.additional_attributes?.avg_weight_needed ? 'Yes' : 'No',
+      cell: ({ row }) => {
+        const item = row.original;
+        const isEditing = editingId === item.id;
+        return isEditing ? (
+          <Checkbox
+            checked={item.additional_attributes.avg_weight_needed}
+            onCheckedChange={(checked) => {
+              handleEdit(item.id, {
+                additional_attributes: {
+                  ...item.additional_attributes,
+                  avg_weight_needed: checked === 'indeterminate' ? false : Boolean(checked)
+                }
+              });
+            }}
+          />
+        ) : (
+          item.additional_attributes.avg_weight_needed ? 'Yes' : 'No'
+        );
+      },
     },
     {
       accessorKey: 'additional_attributes.scrap_type',
       header: 'Scrap Type',
       cell: ({ row }) => {
         const item = row.original;
-        return item.type === 'sell' ? (item.additional_attributes?.scrap_type || '-') : '-';
+        const isEditing = editingId === item.id;
+        return item.type === 'sell' && isEditing ? (
+          <Input
+            defaultValue={item.additional_attributes?.scrap_type || ''}
+            onChange={(e) => handleEdit(item.id, {
+              additional_attributes: {
+                ...item.additional_attributes,
+                scrap_type: e.target.value
+              }
+            })}
+          />
+        ) : (
+          item.type === 'sell' ? (item.additional_attributes?.scrap_type || '-') : '-'
+        );
       },
     },
     {
       accessorKey: 'min_buffer',
       header: 'Min Buffer',
+      cell: ({ row }) => {
+        const item = row.original;
+        const isEditing = editingId === item.id;
+        return isEditing ? (
+          <Input
+            type="number"
+            defaultValue={item.min_buffer}
+            onChange={(e) => handleEdit(item.id, { min_buffer: Number(e.target.value) })}
+          />
+        ) : (
+          item.min_buffer
+        );
+      },
     },
     {
       accessorKey: 'max_buffer',
       header: 'Max Buffer',
+      cell: ({ row }) => {
+        const item = row.original;
+        const isEditing = editingId === item.id;
+        return isEditing ? (
+          <Input
+            type="number"
+            defaultValue={item.max_buffer}
+            onChange={(e) => handleEdit(item.id, { max_buffer: Number(e.target.value) })}
+          />
+        ) : (
+          item.max_buffer
+        );
+      },
     },
     {
       accessorKey: 'tenant_id',
       header: 'Tenant ID',
+      cell: ({ row }) => {
+        const item = row.original;
+        const isEditing = editingId === item.id;
+        return isEditing ? (
+          <Input
+            type="number"
+            defaultValue={item.tenant_id}
+            onChange={(e) => handleEdit(item.id, { tenant_id: Number(e.target.value) })}
+          />
+        ) : (
+          item.tenant_id
+        );
+      },
     },
     {
       accessorKey: 'created_by',
       header: 'Created By',
+      cell: ({ row }) => row.original.created_by,
     },
     {
       accessorKey: 'createdAt',
@@ -207,13 +247,11 @@ export function ItemTable({ data = [], isLoading, onDelete, onEdit }: ItemTableP
       cell: ({ row }) => {
         const item = row.original;
         const isEditing = editingId === item.id;
-        const isDeleting = deletingId === item.id;
-
         return (
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <Button
-              variant="outline"
-              size="sm"
+              variant="ghost"
+              size="icon"
               onClick={() => {
                 if (isEditing) {
                   setEditingId(null);
@@ -221,23 +259,55 @@ export function ItemTable({ data = [], isLoading, onDelete, onEdit }: ItemTableP
                   setEditingId(item.id);
                 }
               }}
-              disabled={isDeleting}
             >
               {isEditing ? 'Save' : 'Edit'}
             </Button>
             <Button
-              variant="destructive"
-              size="sm"
+              variant="ghost"
+              size="icon"
               onClick={() => setItemToDelete(item)}
-              disabled={isDeleting || isEditing}
             >
-              {isDeleting ? 'Deleting...' : 'Delete'}
+              Delete
             </Button>
           </div>
         );
       },
     },
   ];
+
+  const handleEdit = async (id: string, data: Partial<Item>) => {
+    try {
+      await onEdit(id, data as ItemFormData);
+      setEditingId(null);
+      toast({
+        title: 'Success',
+        description: 'Item updated successfully',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to update item',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDelete = async (item: Item) => {
+    try {
+      await onDelete(item.id);
+      setItemToDelete(null);
+      toast({
+        title: 'Success',
+        description: 'Item deleted successfully',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to delete item',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const table = useReactTable({
     data: data || [],
