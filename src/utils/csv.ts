@@ -39,20 +39,20 @@ export async function parseCSV<T>(file: File): Promise<CSVParseResult<T>> {
             id: row.id?.toString() || crypto.randomUUID(),
             internal_item_name: row.internal_item_name,
             tenant_id: Number(row.tenant_id) || 1,
-            item_description: row.item_description || '',
             type: row.type,
             uom: row.uom,
-            min_buffer: Number(row.min_buffer) || 0,
-            max_buffer: Number(row.max_buffer) || 0,
+            min_buffer: row.min_buffer !== undefined ? Number(row.min_buffer) : 0,
+            max_buffer: row.max_buffer !== undefined ? Number(row.max_buffer) : 0,
             created_by: row.created_by || 'system_user',
             last_updated_by: row.last_updated_by || 'system_user',
-            is_deleted: row.is_deleted === 'TRUE' ? true : false,
-            createdAt: row.createdAt || new Date().toISOString(),
-            updatedAt: row.updatedAt || new Date().toISOString(),
+            is_deleted: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
             additional_attributes: {
-              avg_weight_needed: row.additional_attributes__avg_weight_needed === 'TRUE' ? true : false,
-              scrap_type: row.additional_attributes__scrap_type || '',
+              avg_weight_needed: row.additional_attributes__avg_weight_needed === 'TRUE',
+              scrap_type: row.type === 'sell' ? (row.additional_attributes__scrap_type || '') : undefined,
             },
+            item_description: row.item_description || '',
           }));
 
           resolve({

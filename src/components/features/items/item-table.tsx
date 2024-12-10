@@ -88,6 +88,10 @@ export function ItemTable({ data = [], isLoading, onDelete, onEdit }: ItemTableP
 
   const columns: ColumnDef<Item>[] = [
     {
+      accessorKey: 'id',
+      header: 'ID',
+    },
+    {
       accessorKey: 'internal_item_name',
       header: 'Internal Name',
     },
@@ -160,12 +164,43 @@ export function ItemTable({ data = [], isLoading, onDelete, onEdit }: ItemTableP
       },
     },
     {
-      accessorKey: 'item_description',
-      header: 'Description',
+      accessorKey: 'additional_attributes.avg_weight_needed',
+      header: 'Avg Weight Needed',
+      cell: ({ row }) => row.original.additional_attributes?.avg_weight_needed ? 'Yes' : 'No',
     },
     {
-      accessorKey: 'customer_item_name',
-      header: 'Customer Name',
+      accessorKey: 'additional_attributes.scrap_type',
+      header: 'Scrap Type',
+      cell: ({ row }) => {
+        const item = row.original;
+        return item.type === 'sell' ? (item.additional_attributes?.scrap_type || '-') : '-';
+      },
+    },
+    {
+      accessorKey: 'min_buffer',
+      header: 'Min Buffer',
+    },
+    {
+      accessorKey: 'max_buffer',
+      header: 'Max Buffer',
+    },
+    {
+      accessorKey: 'tenant_id',
+      header: 'Tenant ID',
+    },
+    {
+      accessorKey: 'created_by',
+      header: 'Created By',
+    },
+    {
+      accessorKey: 'createdAt',
+      header: 'Created At',
+      cell: ({ row }) => new Date(row.original.createdAt).toLocaleString(),
+    },
+    {
+      accessorKey: 'updatedAt',
+      header: 'Updated At',
+      cell: ({ row }) => new Date(row.original.updatedAt).toLocaleString(),
     },
     {
       id: 'actions',
