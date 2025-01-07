@@ -25,21 +25,31 @@ import { Badge } from '@/components/ui/badge';
 
 const columns: ColumnDef<BOMWithDetails>[] = [
   {
-    accessorKey: 'item.internal_item_name',
-    header: 'Item',
+    accessorKey: 'id',
+    header: 'ID',
   },
   {
-    accessorKey: 'component.internal_item_name',
-    header: 'Component',
+    accessorKey: 'item_id',
+    header: 'Item ID',
+  },
+  {
+    accessorKey: 'component_id',
+    header: 'Component ID',
   },
   {
     accessorKey: 'quantity',
     header: 'Quantity',
-    cell: ({ row }) => (
-      <span>
-        {row.original.quantity} {(row.original.component as any).uom}
-      </span>
-    ),
+  },
+  {
+    accessorKey: 'created_by',
+    header: 'Created By',
+  },
+  {
+    accessorKey: 'createdAt',
+    header: 'Created At',
+    cell: ({ row }) => {
+      return new Date(row.original.createdAt).toLocaleDateString();
+    },
   },
   {
     id: 'actions',

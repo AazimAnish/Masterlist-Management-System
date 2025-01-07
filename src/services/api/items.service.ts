@@ -19,48 +19,87 @@ export class ItemsService extends BaseApiService {
 
     static async createItem(data: ItemFormData): Promise<Item> {
         try {
+            // Validate required fields
+            if (!data.internal_item_name || !data.type || !data.uom) {
+                throw new Error('Missing required fields');
+            }
+
+            // Validate scrap_type for sell items
+            if (data.type === 'sell' && !data.additional_attributes?.scrap_type) {
+                throw new Error('Scrap type is required for sell items');
+            }
+
+            // Validate min_buffer for sell and purchase items
+            if ((data.type === 'sell' || data.type === 'purchase') && typeof data.min_buffer === 'undefined') {
+                throw new Error('Min buffer is required for sell and purchase items');
+            }
+
+            // Validate max_buffer >= min_buffer when both are defined
+            if (typeof data.max_buffer !== 'undefined' && typeof data.min_buffer !== 'undefined' && data.max_buffer < data.min_buffer) {
+                throw new Error('Max buffer must be greater than or equal to min buffer');
+            }
+
+            const minBuffer = typeof data.min_buffer !== 'undefined' ? data.min_buffer : 0;
+            const maxBuffer = typeof data.max_buffer !== 'undefined' ? data.max_buffer : minBuffer;
+
             const response = await fetch(`${API_CONFIG.BASE_URL}/items`, {
                 method: 'POST',
                 headers: this.getHeaders(),
                 body: JSON.stringify({
                     ...data,
+                    tenant_id: 1, // Default tenant ID
                     created_by: 'current_user',
                     last_updated_by: 'current_user',
-                    tenant_id: 1, // TODO: Get from context
                     is_deleted: false,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
+                    min_buffer: minBuffer,
+                    max_buffer: maxBuffer,
                 }),
-                cache: 'no-store'
             });
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || `API Error: ${response.status}`);
-            }
-
-            return response.json();
+            return this.handleResponse<Item>(response);
         } catch (error) {
             console.error('Error creating item:', error);
-            throw error instanceof Error
-                ? error
-                : new Error('Failed to create item');
+            throw error;
         }
     }
 
     static async updateItem(id: string, data: ItemFormData): Promise<Item> {
         try {
-            const response = await this.fetchWithError(`${API_CONFIG.ENDPOINTS.ITEMS}/${id}`, {
+            // Validate required fields
+            if (!data.internal_item_name || !data.type || !data.uom) {
+                throw new Error('Missing required fields');
+            }
+
+            // Validate scrap_type for sell items
+            if (data.type === 'sell' && !data.additional_attributes?.scrap_type) {
+                throw new Error('Scrap type is required for sell items');
+            }
+
+            // Validate min_buffer for sell and purchase items
+            if ((data.type === 'sell' || data.type === 'purchase') && typeof data.min_buffer === 'undefined') {
+                throw new Error('Min buffer is required for sell and purchase items');
+            }
+
+            // Validate max_buffer >= min_buffer when both are defined
+            if (typeof data.max_buffer !== 'undefined' && typeof data.min_buffer !== 'undefined' && data.max_buffer < data.min_buffer) {
+                throw new Error('Max buffer must be greater than or equal to min buffer');
+            }
+
+            const minBuffer = typeof data.min_buffer !== 'undefined' ? data.min_buffer : 0;
+            const maxBuffer = typeof data.max_buffer !== 'undefined' ? data.max_buffer : minBuffer;
+
+            const response = await fetch(`${API_CONFIG.BASE_URL}/items/${id}`, {
                 method: 'PUT',
                 headers: this.getHeaders(),
                 body: JSON.stringify({
                     ...data,
                     last_updated_by: 'current_user',
-                    updatedAt: new Date().toISOString(),
+                    min_buffer: minBuffer,
+                    max_buffer: maxBuffer,
                 }),
-                cache: 'no-store'
             });
-            return response.json();
+
+            return this.handleResponse<Item>(response);
         } catch (error) {
             console.error('Error updating item:', error);
             throw error;
@@ -69,91 +108,95 @@ export class ItemsService extends BaseApiService {
 
     static async deleteItem(id: string): Promise<{ message: string; id: string }> {
         try {
-            // First check if the item exists
-            const items = await this.getItems();
-            const itemExists = items.some(item => item.id === id);
-            
-            if (!itemExists) {
-                throw new Error(`Item with ID ${id} not found`);
-            }
-
             const response = await fetch(`${API_CONFIG.BASE_URL}/items/${id}`, {
                 method: 'DELETE',
                 headers: this.getHeaders(),
-                cache: 'no-store'
             });
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || `Failed to delete item. Status: ${response.status}`);
-            }
-
-            const result = await response.json();
-            return {
-                message: result.message || 'Item deleted successfully',
-                id: id
-            };
+            return this.handleResponse<{ message: string; id: string }>(response);
         } catch (error) {
             console.error('Error deleting item:', error);
-            throw error instanceof Error 
-                ? error 
-                : new Error(`Failed to delete item with ID ${id}`);
+            throw error;
         }
     }
 
     static async uploadItemsCSV(file: File): Promise<{ items?: Item[], errors?: CSVError[] }> {
         try {
-            const parseResult = await parseCSV<Item>(file);
-            
-            if (parseResult.errors.length > 0) {
-                return { errors: parseResult.errors };
-            }
+            const formData = new FormData();
+            formData.append('file', file);
 
-            // Send the transformed data to the API
             const response = await fetch(`${API_CONFIG.BASE_URL}/items/upload`, {
                 method: 'POST',
-                headers: this.getHeaders(),
-                body: JSON.stringify(parseResult.data)
+                headers: {
+                    'Accept': 'application/json',
+                },
+                body: formData,
             });
 
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Failed to upload items');
+            const result = await this.handleResponse<{ items?: Item[], errors?: CSVError[] }>(response);
+
+            // If there are errors, format them for better user feedback
+            if (result.errors && result.errors.length > 0) {
+                result.errors = result.errors.map(error => ({
+                    ...error,
+                    suggestion: this.getErrorSuggestion(error),
+                }));
             }
 
-            const result = await response.json();
-            return { items: result };
+            return result;
         } catch (error) {
-            console.error('Error uploading items:', error);
+            console.error('Error uploading CSV:', error);
             throw error;
         }
     }
 
+    private static getErrorSuggestion(error: CSVError): string {
+        switch (error.field) {
+            case 'internal_item_name':
+                return 'Ensure the item name is unique and not empty';
+            case 'type':
+                return 'Type must be one of: sell, purchase, component';
+            case 'uom':
+                return 'UoM must be one of: kgs, nos';
+            case 'scrap_type':
+                return 'Scrap type is required for sell items';
+            case 'min_buffer':
+                return 'Min buffer is required for sell and purchase items';
+            case 'max_buffer':
+                return 'Max buffer must be greater than or equal to min buffer';
+            default:
+                return 'Please check the field value and try again';
+        }
+    }
+
     private static mapItemType(category: string | undefined): 'sell' | 'purchase' | 'component' {
-        if (!category) return 'sell';
-        
-        const categoryLower = category.toLowerCase();
-        if (categoryLower.includes('electronic')) return 'sell';
-        if (categoryLower.includes('component')) return 'component';
-        return 'purchase';
+        switch (category?.toLowerCase()) {
+            case 'sell':
+                return 'sell';
+            case 'purchase':
+                return 'purchase';
+            case 'component':
+                return 'component';
+            default:
+                throw new Error('Invalid item type');
+        }
     }
 
     private static mapUoM(quantity: string | undefined): 'kgs' | 'nos' {
-        if (!quantity) return 'nos';
-        return !isNaN(Number(quantity)) ? 'nos' : 'kgs';
+        switch (quantity?.toLowerCase()) {
+            case 'kgs':
+                return 'kgs';
+            case 'nos':
+                return 'nos';
+            default:
+                throw new Error('Invalid UoM');
+        }
     }
 
-    // Helper method to handle API responses
     static async handleResponse<T>(response: Response): Promise<T> {
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const errorMessage = errorData.message || `API Error: ${response.status}`;
-            
-            if (response.status === 404) {
-                throw new Error('Resource not found');
-            }
-            
-            throw new Error(errorMessage);
+            throw new Error(errorData.message || `API Error: ${response.status}`);
         }
         return response.json();
     }
@@ -164,12 +207,15 @@ export class ItemsService extends BaseApiService {
     ): Promise<Response> {
         const response = await fetch(`${API_CONFIG.BASE_URL}${url}`, {
             ...options,
-            headers: this.getHeaders(),
+            headers: {
+                ...this.getHeaders(),
+                ...(options?.headers || {}),
+            },
         });
 
         if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            throw new Error(error.message || `API Error: ${response.status}`);
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `API Error: ${response.status}`);
         }
 
         return response;
@@ -178,6 +224,7 @@ export class ItemsService extends BaseApiService {
     protected static getHeaders(): HeadersInit {
         return {
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
         };
     }
 } 
