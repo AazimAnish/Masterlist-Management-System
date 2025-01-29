@@ -116,7 +116,10 @@ export default function BOMPage() {
       <div className="rounded-lg border bg-card">
         <div className="p-6">
           <h2 className="text-lg font-semibold mb-4">BOM List</h2>
-          <BOMTable data={bomData} />
+          <BOMTable 
+            data={bomData} 
+            onRefresh={fetchBOMData}
+          />
         </div>
       </div>
     </div>

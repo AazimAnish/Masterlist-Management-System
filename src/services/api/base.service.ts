@@ -5,28 +5,29 @@ export class BaseApiService {
     url: string,
     options?: RequestInit
   ): Promise<Response> {
-    const response = await fetch(`${API_CONFIG.BASE_URL}${url}`, options);
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...this.getHeaders(),
+        ...(options?.headers || {}),
+      },
+    });
+
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || `API Error: ${response.status}`);
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
+
     return response;
   }
 
   protected static getHeaders(): HeadersInit {
     return {
       'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      // Add any auth headers if needed
-      // 'Authorization': `Bearer ${getToken()}`,
     };
   }
 
   protected static async handleResponse<T>(response: Response): Promise<T> {
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `API Error: ${response.status}`);
-    }
-    return response.json();
+    const data = await response.json();
+    return data as T;
   }
 } 

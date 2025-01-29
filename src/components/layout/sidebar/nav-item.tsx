@@ -18,23 +18,20 @@ export function SidebarNavItem({
     <Link
       href={isDisabled ? '#' : item.path}
       className={cn(
-        'flex flex-col space-y-2 p-3 rounded-lg transition-colors',
-        isActive ? 'bg-primary/10' : 'hover:bg-primary/5',
-        isDisabled && 'opacity-50 cursor-not-allowed'
+        'group flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground',
+        isDisabled && 'pointer-events-none opacity-50'
       )}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <item.icon className="w-5 h-5" />
-          <span className="font-medium">{item.title}</span>
+      <div className="flex-1 space-y-1">
+        <div className="flex items-center">
+          {item.icon && <item.icon className="mr-2 h-4 w-4" />}
+          <span>{item.title}</span>
+          {item.isComplete && (
+            <span className="ml-2 text-xs text-green-500">(Complete)</span>
+          )}
         </div>
-        {item.isComplete && (
-          <div className="text-green-500">
-            <CheckCircle className="w-4 h-4" />
-          </div>
-        )}
+        <ProgressIndicator progress={item.progress} size="sm" />
       </div>
-      <ProgressIndicator progress={item.progress} size="sm" />
     </Link>
   );
 }

@@ -1,18 +1,17 @@
 'use client';
 
-import { PageHeader } from '@/components/layout/page-header';
-import { setupSteps } from '@/config/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
 import { useItems } from '@/hooks/use-items';
 import { useBOM } from '@/hooks/use-bom';
 import { useProcesses } from '@/hooks/use-processes';
 import { useProcessSteps } from '@/hooks/use-process-steps';
 import { useSetupStore } from '@/stores/useSetupStore';
+import { setupSteps } from '@/config/navigation';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 
-export default function Home() {
+export function HomeContent() {
   const { items, isLoading: itemsLoading } = useItems();
   const { boms, isLoading: bomsLoading } = useBOM();
   const { processes, isLoading: processesLoading } = useProcesses();
@@ -23,11 +22,6 @@ export default function Home() {
 
   return (
     <div className="space-y-8">
-      <PageHeader
-        title="Welcome to Masterlist Management System"
-        description="Efficiently manage your items, processes, bill of materials, and process steps in one place."
-      />
-
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
         {setupSteps.map((step, index) => {
           const stepProgress = progress[step.title.toLowerCase() as keyof typeof progress] || 0;
@@ -117,4 +111,4 @@ function getStepDescription(title: string): string {
     default:
       return '';
   }
-}
+} 

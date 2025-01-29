@@ -1,6 +1,12 @@
-import { useEffect, useState } from 'react';
+'use client';
+
+import { useState, useEffect } from 'react';
 import { PendingItemsByType } from '@/types/pending';
 import { useSetupStore } from '@/stores/useSetupStore';
+import { useItems } from '@/hooks/use-items';
+import { useBOM } from '@/hooks/use-bom';
+import { useProcesses } from '@/hooks/use-processes';
+import { useProcessSteps } from '@/hooks/use-process-steps';
 
 export function usePendingItems() {
   const [isLoading, setIsLoading] = useState(true);
@@ -12,49 +18,56 @@ export function usePendingItems() {
   });
 
   const progress = useSetupStore((state) => state.progress);
+  const { items, isLoading: itemsLoading } = useItems();
+  const { boms, isLoading: bomsLoading } = useBOM();
+  const { processes, isLoading: processesLoading } = useProcesses();
+  const { processSteps, isLoading: stepsLoading } = useProcessSteps();
 
   useEffect(() => {
-    // This is where you would typically fetch pending items from your API
-    // For now, we'll generate them based on progress
+    if (itemsLoading || bomsLoading || processesLoading || stepsLoading) {
+      return;
+    }
+
+    // Calculate pending items based on actual data
     const newPendingItems: PendingItemsByType = {
-      items: progress.items < 100 ? [
+      items: items.length === 0 ? [
         {
-          id: '1',
-          title: 'Complete Item Setup',
+          id: 'items-setup',
+          title: 'Set Up Initial Items',
           type: 'items',
-          description: 'Add required item information including UoM and type',
+          description: 'Add your first items to get started with the system',
           path: '/items',
         }
       ] : [],
-      processes: progress.processes < 100 ? [
+      
+      processes: items.length > 0 && processes.length === 0 ? [
         {
-          id: '2',
-          title: 'Define Processes',
+          id: 'processes-setup',
+          title: 'Define Manufacturing Processes',
           type: 'processes',
-          description: 'Set up manufacturing processes',
-          dependencies: progress.items < 100 ? ['Items'] : undefined,
+          description: 'Create processes to organize your manufacturing workflow',
           path: '/processes',
         }
       ] : [],
-      bom: progress.bom < 100 ? [
+      
+      bom: items.length > 0 && boms.length === 0 ? [
         {
-          id: '3',
+          id: 'bom-setup',
           title: 'Create Bill of Materials',
           type: 'bom',
-          description: 'Define item relationships and quantities',
-          dependencies: progress.items < 100 ? ['Items'] : undefined,
+          description: 'Define relationships between your items',
+          dependencies: items.length === 0 ? ['Items'] : undefined,
           path: '/bom',
         }
       ] : [],
-      processSteps: progress.processSteps < 100 ? [
+      
+      processSteps: processes.length > 0 && processSteps.length === 0 ? [
         {
-          id: '4',
+          id: 'steps-setup',
           title: 'Configure Process Steps',
           type: 'processSteps',
-          description: 'Set up manufacturing process steps',
-          dependencies: 
-            progress.processes < 100 ? ['Processes'] : 
-            progress.items < 100 ? ['Items'] : undefined,
+          description: 'Break down processes into detailed steps',
+          dependencies: processes.length === 0 ? ['Processes'] : undefined,
           path: '/process-steps',
         }
       ] : [],
@@ -62,7 +75,7 @@ export function usePendingItems() {
 
     setPendingItems(newPendingItems);
     setIsLoading(false);
-  }, [progress]);
+  }, [items, boms, processes, processSteps, itemsLoading, bomsLoading, processesLoading, stepsLoading]);
 
   return { pendingItems, isLoading };
 }

@@ -1,5 +1,8 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { Process } from '@/types/process';
+import { ProcessService } from '@/services/api/process.service';
 
 // This is a mock API call - replace with your actual API call
 const fetchProcesses = async (): Promise<Process[]> => {
@@ -36,24 +39,60 @@ export function useProcesses() {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    const loadProcesses = async () => {
-      try {
-        setIsLoading(true);
-        const data = await fetchProcesses();
-        setProcesses(data);
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error('Failed to fetch processes'));
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     loadProcesses();
   }, []);
+
+  const loadProcesses = async () => {
+    try {
+      setIsLoading(true);
+      const data = await ProcessService.getProcesses();
+      setProcesses(data);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to fetch processes'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const createProcess = async (data: Omit<Process, 'id'>) => {
+    try {
+      const newProcess = await ProcessService.createProcess(data);
+      setProcesses(prevProcesses => [...prevProcesses, newProcess]);
+      return newProcess;
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to create process'));
+      throw err;
+    }
+  };
+
+  const updateProcess = async (id: string, data: Process) => {
+    try {
+      const updatedProcess = await ProcessService.updateProcess(id, data);
+      setProcesses(prevProcesses => prevProcesses.map(process => process.id === id ? updatedProcess : process));
+      return updatedProcess;
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to update process'));
+      throw err;
+    }
+  };
+
+  const deleteProcess = async (id: string) => {
+    try {
+      await ProcessService.deleteProcess(id);
+      setProcesses(prevProcesses => prevProcesses.filter(process => process.id !== id));
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to delete process'));
+      throw err;
+    }
+  };
 
   return {
     processes,
     isLoading,
     error,
+    createProcess,
+    updateProcess,
+    deleteProcess,
+    refetch: loadProcesses
   };
 }
